@@ -1,7 +1,7 @@
 # TCGA Multi-omic Survival Prediction under Missing Modalities
- 
+
 Code for the paper **"Learnable Missing-Modality Tokens Show No Benefit over Imputation with Indicators: A Three-Cohort Failure Analysis of Proteogenomic Survival Prediction"** (under review).
- 
+
 **Contents:**
 [1. What this repository is about](#1-what-this-repository-is-about) ·
 [2. Main findings](#2-main-findings) ·
@@ -15,25 +15,26 @@ Code for the paper **"Learnable Missing-Modality Tokens Show No Benefit over Imp
 [10. Troubleshooting](#10-troubleshooting) ·
 [11. Glossary](#11-glossary) ·
 [12. License](#12-license)
- 
+
 ---
- 
+
 ## 1. What this repository is about
- 
+
 **The problem.** Survival models that combine several molecular data types ("modalities") for the same patient must decide what to do when one modality was never measured. In TCGA, about 11–30% of patients have no reverse-phase protein array (RPPA) proteomics data, depending on the cancer type. Many deep-learning papers handle this with learned mechanisms, such as a *learnable missing-modality token*, and judge their models mainly by the C-index.
- 
+
 **What we test.** Two practices:
- 
+
 1. **Does a learned missing-modality mechanism beat a simple one?** We compare a learnable token with median imputation plus a missingness indicator, regression imputation and late fusion. All arms use the same network, folds, features and hyperparameters.
 2. **Does reporting only the C-index hide problems?** We also measure absolute-risk accuracy, calibration, and whether the omics score adds anything to a model built from routine clinical variables.
+
 **Where.** Three TCGA cohorts with naturally missing RPPA data: breast cancer (BRCA), lung adenocarcinoma (LUAD) and clear-cell renal carcinoma (KIRC).
- 
+
 **How.** Every step that learns from data is fit only on training data, under repeated 5×5-fold cross-validation. This covers feature selection, imputation, scaling, early stopping, recalibration and the clinical models. Second-stage models use nested cross-fitting, so every evaluated prediction is out of sample.
- 
+
 ---
- 
+
 ## 2. Main findings
- 
+
 | | BRCA | LUAD | KIRC |
 |---|---|---|---|
 | Patients / deaths | 1,084 / 151 | 505 / 182 | 511 / 170 |
@@ -41,18 +42,19 @@ Code for the paper **"Learnable Missing-Modality Tokens Show No Benefit over Imp
 | Token − indicator, ΔC-index [95% CI] | +0.008 [−0.012, +0.027] | −0.018 [−0.041, +0.004] | −0.005 [−0.015, +0.004] |
 | Late fusion − indicator, ΔC-index | +0.005 (not significant) | **−0.033** (p = 0.045) | **−0.026** (p = 0.027) |
 | Omics added to clinical model, ΔC-index | +0.006 (not significant) | −0.005 (p = 0.047) | **+0.018** (p = 0.036; clinical model includes grade) |
- 
+
 - **The learnable token never beat imputation plus an indicator.** With a linear first layer, the token model is an exact reparameterization of a subset of the indicator model, so the comparison tests parameterization, not expressive power.
 - **Regression imputation matched the indicator model. Late fusion was worse** in two of three cohorts.
 - **A post hoc BRCA subgroup signal** (patients without RPPA: ΔC = +0.107, p = 0.068) **did not replicate** in LUAD or KIRC.
 - **Whether omics add value depends on the cohort.**
-- BRCA: absolute-risk accuracy was indistinguishable from predicting the same risk for everyone (IPA 1.7%).
-- LUAD: the omics score was at chance.
-- KIRC: the omics score added to age, stage and histologic grade.
+  - BRCA: absolute-risk accuracy was indistinguishable from predicting the same risk for everyone (IPA 1.7%).
+  - LUAD: the omics score was at chance.
+  - KIRC: the omics score added to age, stage and histologic grade.
+
 ---
- 
+
 ## 3. Repository map
- 
+
 | Path | Type | What it is |
 |---|---|---|
 | [`README.md`](README.md) | doc | This file. |
@@ -70,48 +72,49 @@ Code for the paper **"Learnable Missing-Modality Tokens Show No Benefit over Imp
 | [`snapshot/README.md`](snapshot/README.md) | doc | Layout of the snapshot folder. |
 | [`results/`](results/) | folder | Everything the scripts produce (tables, arrays, figures, summaries). Described in [§6.4](#64-outputs-results). |
 | [`results/README.md`](results/README.md) | doc | Short list of output files. |
- 
+
 ---
- 
+
 ## 4. Quick start
- 
+
 ### 4.1 Install
- 
+
 ```bash
 git clone <this repository>
 cd <repository folder>
 pip install -r requirements.txt
 ```
- 
+
 Requires Python 3.10 or newer. The paper's runs used scikit-learn 1.9.1 and scikit-survival 0.28.0 on Google Colab. A GPU speeds up script 01 but is not required.
- 
+
 ### 4.2 Run
- 
+
 ```bash
 export PGR_BASE_DIR=$(pwd)        # scripts read ./snapshot and write ./results
 python scripts/01_brca_main_pipeline.py
 python scripts/02_brca_tree_baselines_site_sensitivity.py
 python scripts/03_extension_luad_kirc_mechanisms.py
 ```
- 
+
 | Script | Needs | Hardware | Approx. time |
 |---|---|---|---|
 | [`01`](scripts/01_brca_main_pipeline.py) | nothing (downloads data if `snapshot/` is empty) | GPU recommended | 1–2 h |
 | [`02`](scripts/02_brca_tree_baselines_site_sensitivity.py) | outputs of 01 | CPU | 15–25 min |
 | [`03`](scripts/03_extension_luad_kirc_mechanisms.py) | outputs of 01 (and 02) | CPU | ~2 h, resumable |
- 
+
 For a quick test of script 01 (~15 min), set `N_REPEATS=1` and `RUN_LEARNING_CURVE=False` in its `CFG` block (see [§7](#7-configuration)).
- 
+
 On Google Colab, follow [`colab/RUN_IN_COLAB.md`](colab/RUN_IN_COLAB.md) instead.
- 
+
 ### 4.3 Check the results
- 
+
 - [`results/summary_brca.md`](results/) (from 02) and [`results/extension/summary_extension.md`](results/) (from 03) list every key number in plain text.
 - [`PAPER_MAP.md`](PAPER_MAP.md) shows which paper table each number belongs to.
+
 ---
- 
+
 ## 5. The pipeline step by step
- 
+
 ```
 cBioPortal API ──► snapshot/  (frozen JSON; downloaded once)
                       │
@@ -124,11 +127,11 @@ cBioPortal API ──► snapshot/  (frozen JSON; downloaded once)
                       ▼
    03_extension_luad_kirc_mechanisms.py ──► snapshot/<LUAD, KIRC>/ + results/extension/
 ```
- 
+
 ### Script 01: BRCA primary analysis
- 
+
 Script 01 is organized in numbered cells (`# %% [n]`). They can be run as one script, or pasted cell by cell into a notebook.
- 
+
 | Cell | Purpose |
 |---|---|
 | `[0]` Setup | Imports, `CFG` settings, output folders, the 44-gene breast-cancer driver panel. |
@@ -142,28 +145,30 @@ Script 01 is organized in numbered cells (`# %% [n]`). They can be run as one sc
 | `[8]` Stress test | Forces RPPA to be missing at increasing rates on held-out complete-data patients. |
 | `[9]` Learning curves | Token vs indicator at 25/50/75/100% of each training fold. |
 | `[10]` Save | Writes `results.json`, `oof_predictions.csv` and a printed summary. |
- 
+
 ### Script 02: BRCA tree baselines and site sensitivity
- 
+
 - Repeats the setup and data cells of 01, then loads 01's saved arrays.
 - Fits a random survival forest and a gradient-boosted survival model on exactly the same folds and features.
 - Fits Cox models of survival on the omics score with and without stratification by tissue source site (the 2-character center code in the TCGA sample ID), to check that the score is not explained by which hospital collected the sample.
 - Writes `summary_brca.md`.
 - Needed when scikit-survival was unavailable during 01, and always needed for the site analysis.
+
 ### Script 03: replication cohorts and additional mechanisms
- 
+
 - Downloads and freezes LUAD and KIRC with the same rules as BRCA.
 - Runs four neural arms in every cohort: token, indicator, regression imputation and late fusion. In BRCA it trains only the two new arms and reuses 01's saved arrays.
 - Runs the three classical baselines in LUAD and KIRC, plus the nested absolute-risk and incremental-value analysis.
 - Tests whether the BRCA RPPA-missing subgroup result replicates.
 - Re-runs KIRC with histologic grade added to the clinical comparator.
 - Resumable: each cohort's arrays are saved when finished, and rerunning skips finished cohorts.
+
 ---
- 
+
 ## 6. Every file explained
- 
+
 ### 6.1 Documentation and configuration
- 
+
 | File | Contents |
 |---|---|
 | [`README.md`](README.md) | Overview, usage and file reference (this document). |
@@ -172,19 +177,19 @@ Script 01 is organized in numbered cells (`# %% [n]`). They can be run as one sc
 | [`colab/RUN_IN_COLAB.md`](colab/RUN_IN_COLAB.md) | Install with `!pip`, restart the runtime, then run 01, 02, 03; where Drive files go. |
 | [`LICENSE`](LICENSE) | MIT. |
 | [`.gitignore`](.gitignore) | Ignores `__pycache__/`, `*.pyc`, `.ipynb_checkpoints/`, `.DS_Store`. |
- 
+
 ### 6.2 Code
- 
+
 | File | Input | Output |
 |---|---|---|
 | [`scripts/01_brca_main_pipeline.py`](scripts/01_brca_main_pipeline.py) | `snapshot/` (BRCA JSON) or the cBioPortal API | BRCA files in `results/` (see §6.4) |
 | [`scripts/02_brca_tree_baselines_site_sensitivity.py`](scripts/02_brca_tree_baselines_site_sensitivity.py) | `snapshot/`, `results/oof_arrays.npz`, `results/results.json` | updated `results/` files + `summary_brca.md` |
 | [`scripts/03_extension_luad_kirc_mechanisms.py`](scripts/03_extension_luad_kirc_mechanisms.py) | `snapshot/`, `results/oof_arrays.npz`, the cBioPortal API for LUAD and KIRC if not yet frozen | `snapshot/luad_.../`, `snapshot/kirc_.../`, `results/extension/` |
- 
+
 ### 6.3 Input data: [`snapshot/`](snapshot/)
- 
+
 BRCA files sit directly in `snapshot/`. LUAD and KIRC files sit in subfolders named after their cBioPortal study (`snapshot/luad_tcga_pan_can_atlas_2018/`, `snapshot/kirc_tcga_pan_can_atlas_2018/`). Files per cohort:
- 
+
 | File | Contents |
 |---|---|
 | `retrieval_meta.json` | UTC time at which the data were downloaded. |
@@ -197,11 +202,11 @@ BRCA files sit directly in `snapshot/`. LUAD and KIRC files sit in subfolders na
 | `rppa_zscores.json` | RPPA protein-level z-scores per sample and protein. |
 | `mutations.json` | Mutation calls per sample and gene. |
 | `molecular_profiles.json` | List of the study's molecular profiles (written by script 03, all cohorts). |
- 
+
 ### 6.4 Outputs: [`results/`](results/)
- 
+
 **From script 01 (BRCA)**
- 
+
 | File | Contents |
 |---|---|
 | `results.json` | Every BRCA number. Keys: `reconciliation`, `discrimination`, `paired_bootstrap`, `subgroups`, `equivalence`, `calibration`, `combo_vs_clinical_C`, `ph_test`, `dca`, `stress_test`, `learning_curve`, `brier_crosscheck`, `abstract_C_range` (plus `site_sensitivity` after 02). |
@@ -220,16 +225,16 @@ BRCA files sit directly in `snapshot/`. LUAD and KIRC files sit in subfolders na
 | `dca_nested.png` | Decision curves, clinical + omics vs clinical (paper figure). |
 | `learning_curve_diff.png` | Token − indicator C-index vs training events (paper figure). |
 | `learning_curve.png` | Token and indicator C-index vs training events (diagnostic). |
- 
+
 **From script 02 (BRCA)**
- 
+
 | File | Contents |
 |---|---|
 | `summary_brca.md` | Readable summary: tree baselines, absolute-risk table, combined vs clinical, decision-curve range, stress test, site sensitivity. |
 | `results.json`, `oof_arrays.npz`, `table_discrimination.csv`, `table_paired_bootstrap.csv` | Updated with random survival forest and gradient-boosted survival (and `site_sensitivity` in JSON). |
- 
+
 **From script 03 (all cohorts), in `results/extension/`**
- 
+
 | File | Contents |
 |---|---|
 | `arrays_BRCA.npz`, `arrays_LUAD.npz`, `arrays_KIRC.npz` | Out-of-fold predictions per cohort, same layout as `oof_arrays.npz`, including `haz_regimpute` and `haz_latefusion`. |
@@ -239,13 +244,13 @@ BRCA files sit directly in `snapshot/`. LUAD and KIRC files sit in subfolders na
 | `summary_extension.md` | Readable summary of all three cohorts (the source of the cross-cohort tables in the paper). |
 | `summary_kirc_grade.md` | Readable summary of the KIRC-with-grade analysis. |
 | `cross_cohort_forest.png` | Forest plot of paired differences across cohorts (diagnostic, not in the paper). |
- 
+
 ---
- 
+
 ## 7. Configuration
- 
+
 Each script has a `CFG` dictionary near the top. The defaults reproduce the paper.
- 
+
 | Setting | Default | Meaning |
 |---|---|---|
 | `N_REPEATS`, `N_OUTER`, `N_INNER` | 5, 5, 5 | Repeats of outer CV, outer folds, inner folds for nested models. |
@@ -259,41 +264,43 @@ Each script has a `CFG` dictionary near the top. The defaults reproduce the pape
 | `RIDGE_ALPHA` | 1.0 | Ridge penalty for regression imputation (script 03). |
 | `RUN_KIRC_GRADE` | True | Run the KIRC-with-grade analysis (script 03). |
 | `PGR_BASE_DIR` (environment variable) | not set | Base folder containing `snapshot/` and `results/`. If unset: Google Drive on Colab, otherwise `./proteogenomic_revision`. |
- 
+
 ---
- 
+
 ## 8. Data
- 
+
 Public TCGA PanCancer Atlas studies from [cBioPortal](https://www.cbioportal.org), with no login required:
- 
+
 | Cohort | cBioPortal study ID | RPPA proteins | Mutation panel |
 |---|---|---|---|
 | BRCA (breast) | `brca_tcga_pan_can_atlas_2018` | 208 | 44 breast-cancer driver genes |
 | LUAD (lung adenocarcinoma) | `luad_tcga_pan_can_atlas_2018` | 209 | 44 genes + KEAP1, SMARCA4, RBM10, U2AF1, SETD2, MET (50) |
 | KIRC (clear-cell renal) | `kirc_tcga_pan_can_atlas_2018` | 209 | 44 genes + VHL, PBRM1, SETD2, BAP1, KDM5C (49) |
- 
+
 **Outcome:** overall survival, evaluated at 5 years.
- 
+
 **Clinical comparators:**
 - BRCA: age, AJCC stage and PAM50 subtype.
 - LUAD: age and stage.
 - KIRC: age and stage, with and without histologic grade.
+
 **Snapshot:** the frozen data used in the paper are in [`snapshot/`](snapshot/). BRCA was retrieved on 30 September 2026 (UTC); LUAD and KIRC on 1 October 2026 (UTC). If the folder is empty, the scripts download fresh data, which may differ slightly if cBioPortal has been updated since.
- 
+
 ---
- 
+
 ## 9. Reproducibility
- 
+
 - **Seeds.** Outer folds use `StratifiedKFold(5, shuffle=True, random_state=r)` for repeats `r = 0…4`. Network seeds are derived from repeat and fold indices, and bootstrap seeds are fixed in the code. Neural-network results can differ in the last decimal across hardware and PyTorch versions.
 - **Traceability.** Every number in the paper is written to `results/`. [`PAPER_MAP.md`](PAPER_MAP.md) says where each one comes from.
 - **Scope.** The paper also audits evaluation errors in an earlier version of the analysis. That superseded pipeline is not included here; all corrected estimates are reproduced.
 - **Two implementation details discussed in the paper:**
-1. A modality counts as missing only when the sample is absent from cBioPortal's sample list for that assay.
-2. In LUAD no patient lacks mutation profiling, so the always-zero mutation-missing indicator is dropped from the elastic-net Cox model within each training fold.
+  1. A modality counts as missing only when the sample is absent from cBioPortal's sample list for that assay.
+  2. In LUAD no patient lacks mutation profiling, so the always-zero mutation-missing indicator is dropped from the elastic-net Cox model within each training fold.
+
 ---
- 
+
 ## 10. Troubleshooting
- 
+
 | Problem | Fix |
 |---|---|
 | `ImportError` from scikit-survival on Colab | Run `!pip install -q lifelines scikit-survival==0.28.0` in its own cell, then **Runtime → Restart session**, then run the script. Never put `!pip` in the same cell as the script. |
@@ -302,11 +309,11 @@ Public TCGA PanCancer Atlas studies from [cBioPortal](https://www.cbioportal.org
 | Script 03 stopped part-way | Rerun it. Finished cohorts are loaded from `results/extension/arrays_*.npz` and skipped. |
 | `FileNotFoundError: oof_arrays.npz` in script 02 or 03 | Run script 01 first, with the same `PGR_BASE_DIR`. |
 | `WARNING: cohort differs from the paper` | The snapshot is not the frozen one used in the paper (probably a fresh download). Results will be close but not identical. |
- 
+
 ---
- 
+
 ## 11. Glossary
- 
+
 | Term | Meaning |
 |---|---|
 | **Modality** | One type of molecular measurement for a patient. Here: RPPA proteomics and somatic mutations. |
@@ -327,9 +334,9 @@ Public TCGA PanCancer Atlas studies from [cBioPortal](https://www.cbioportal.org
 | **Decision curve / net benefit** | Clinical usefulness of a model across risk thresholds at which one would act. |
 | **Repeat ensemble** | For each method, the average over the 5 repeats of rank-normalized risk scores; used for CIs and paired tests. |
 | **Tissue source site** | The hospital or center that contributed a TCGA sample. |
- 
+
 ---
- 
+
 ## 12. License
- 
+
 MIT. See [`LICENSE`](LICENSE).
